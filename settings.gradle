@@ -1,0 +1,2 @@
+rootProject.name = "sms2025"
+include(":app")

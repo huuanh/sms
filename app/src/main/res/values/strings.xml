@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SMS Forwarder</string>
+    <string name="receiver_number_hint">Receiver phone number</string>
+    <string name="save_button">Save</string>
+    <string name="permission_rationale">SMS permissions are needed to receive messages.</string>
+    <string name="receiver_saved">Receiver number saved.</string>
+    <string name="receiver_missing">Please enter a receiver number.</string>
+    <string name="service_notification_message">Listening for incoming SMS messages.</string>
+    <string name="sim_info_placeholder">SIM info will appear here.</string>
+    <string name="sim_info_title">Detected SIMs:</string>
+    <string name="sim_info_format">SIM %1$d - %2$s
+Phone: %3$s
+ICCID: %4$s</string>
+    <string name="no_sim_detected">No active SIMs detected.</string>
+    <string name="unknown_carrier">Unknown carrier</string>
+</resources>
