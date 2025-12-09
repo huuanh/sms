@@ -2,9 +2,11 @@ package com.example.smsforwarder;
 
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -26,30 +28,40 @@ public class RetryManager {
         if (failed.isEmpty()) {
             return;
         }
-        for (FailedSmsEntity entity : failed) {
-            final FailedSmsEntity cachedEntity = entity;
-            try {
-                JSONObject bodyJson = new JSONObject(entity.getPayload());
-                apiClient.sendEncryptedAsync(bodyJson, new ApiClient.SendCallback() {
-                    @Override
-                    public void onSuccess() {
-                        failedSmsDao.delete(cachedEntity);
-                    }
+        JSONArray batchedPayloads = new JSONArray();
+        List<FailedSmsEntity> processedEntities = new ArrayList<>();
 
-                    @Override
-                    public void onFailure(String plainJson, Exception exception) {
-                        if (exception != null) {
-                            Log.w(TAG, "Retry still failing for id=" + cachedEntity.getId() + ": " + exception.getMessage());
-                        } else {
-                            Log.w(TAG, "Retry still failing for id=" + cachedEntity.getId());
-                        }
-                    }
-                });
+        for (FailedSmsEntity entity : failed) {
+            try {
+                appendPayload(entity.getPayload(), batchedPayloads);
+                processedEntities.add(entity);
             } catch (JSONException exception) {
-                Log.e(TAG, "Corrupt cached payload; dropping id=" + cachedEntity.getId());
-                failedSmsDao.delete(cachedEntity);
+                Log.e(TAG, "Corrupt cached payload; dropping id=" + entity.getId());
+                failedSmsDao.delete(entity);
             }
         }
+
+        if (batchedPayloads.length() == 0) {
+            return;
+        }
+
+        apiClient.sendEncryptedListAsync(batchedPayloads, new ApiClient.SendCallback() {
+            @Override
+            public void onSuccess() {
+                for (FailedSmsEntity entity : processedEntities) {
+                    failedSmsDao.delete(entity);
+                }
+            }
+
+            @Override
+            public void onFailure(String plainJson, Exception exception) {
+                if (exception != null) {
+                    Log.w(TAG, "Batch retry still failing: " + exception.getMessage());
+                } else {
+                    Log.w(TAG, "Batch retry still failing.");
+                }
+            }
+        });
     }
 
     public void processBodyJson(JSONObject bodyJson) {
@@ -80,5 +92,30 @@ public class RetryManager {
         }
         FailedSmsEntity entity = new FailedSmsEntity(payload, System.currentTimeMillis());
         failedSmsDao.insert(entity);
+    }
+
+    private void appendPayload(String payload, JSONArray accumulator) throws JSONException {
+        if (payload == null) {
+            throw new JSONException("Payload is null");
+        }
+        String trimmed = payload.trim();
+        if (trimmed.isEmpty()) {
+            throw new JSONException("Payload is empty");
+        }
+        if (trimmed.startsWith("[")) {
+            JSONArray array = new JSONArray(trimmed);
+            if (array.length() == 0) {
+                throw new JSONException("Empty payload array");
+            }
+            for (int index = 0; index < array.length(); index++) {
+                JSONObject element = array.optJSONObject(index);
+                if (element == null) {
+                    throw new JSONException("Payload array element is not an object");
+                }
+                accumulator.put(element);
+            }
+            return;
+        }
+        accumulator.put(new JSONObject(trimmed));
     }
 }

