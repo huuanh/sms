@@ -88,10 +88,9 @@ public class ApiClient {
         try {
             JSONArray data = new JSONArray();
             data.put(new JSONObject(bodyString));
-            final String payloadJson = data.toString();
             // String encrypted = encryptJson(payloadJson);
 
-            sendToServer(payloadJson, callback);
+            sendToServer(data, callback);
             
         } catch (Exception exception) {
             Log.e(TAG, "Unexpected encryption error: " + exception.getMessage());
@@ -109,20 +108,19 @@ public class ApiClient {
             }
             return;
         }
-        final String bodyString = bodyJsonArray.toString();
         try {
             // String encrypted = encryptJson(bodyString);
 
-            sendToServer(bodyString, null);
+            sendToServer(bodyJsonArray, null);
         } catch (Exception exception) {
             Log.e(TAG, "Unexpected encryption error: " + exception.getMessage());
             if (callback != null) {
-                callback.onFailure(bodyString, exception);
+                callback.onFailure(bodyJsonArray.toString(), exception);
             }
         }
     }
 
-    private void sendToServer(String data, SendCallback callback) {
+    private void sendToServer(JSONArray data, SendCallback callback) {
         try {
             JSONObject requestJson = new JSONObject();
             requestJson.put("token", TOKEN);
@@ -134,6 +132,8 @@ public class ApiClient {
             Request request = new Request.Builder()
                 .url(POST_URL)
                 .post(requestBody)
+                .addHeader("content-type", "application/json")
+                .addHeader("cache-control", "no-cache")
                 .build();
 
             client.newCall(request).enqueue(new Callback() {
@@ -141,7 +141,11 @@ public class ApiClient {
                 public void onFailure(Call call, IOException e) {
                     Log.e(TAG, "POST failed: " + e.getMessage());
                     if (callback != null) {
-                        callback.onFailure(data, e);
+                        try {
+                            callback.onFailure(data.getJSONObject(0).toString(), e);
+                        } catch (JSONException ex) {
+                            throw new RuntimeException(ex);
+                        }
                     }
                 }
 
@@ -150,7 +154,11 @@ public class ApiClient {
                     if (!response.isSuccessful()) {
                         Log.w(TAG, "POST unsuccessful: code=" + response.code());
                         if (callback != null) {
-                            callback.onFailure(data, null);
+                            try {
+                                callback.onFailure(data.getJSONObject(0).toString(), null);
+                            } catch (JSONException ex) {
+                                throw new RuntimeException(ex);
+                            }
                         }
                     } else {
                         Log.d(TAG, "POST successful.");
@@ -164,7 +172,7 @@ public class ApiClient {
         } catch (Exception exception) {
             Log.e(TAG, "Unexpected POST error: " + exception.getMessage());
             if (callback != null) {
-                callback.onFailure(data, exception);
+                callback.onFailure(data.toString(), exception);
             }
         }
     }
