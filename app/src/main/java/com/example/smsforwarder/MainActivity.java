@@ -22,10 +22,7 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        binding.inputReceiverNumber.setText(AppPreferences.getReceiverNumber(this));
         renderSimInfo();
-
-        binding.buttonSave.setOnClickListener(view -> saveReceiverNumber());
 
         if (!PermissionsHelper.hasSmsPermissions(this)) {
             PermissionsHelper.requestSmsPermissions(this);
@@ -68,16 +65,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         binding.textSimInfo.setText(builder.toString().trim());
-    }
-
-    private void saveReceiverNumber() {
-        String receiverNumber = binding.inputReceiverNumber.getText().toString().trim();
-        if (TextUtils.isEmpty(receiverNumber)) {
-            Toast.makeText(this, R.string.receiver_missing, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        AppPreferences.saveReceiverNumber(this, receiverNumber);
-        Toast.makeText(this, R.string.receiver_saved, Toast.LENGTH_SHORT).show();
     }
 
     @Override
