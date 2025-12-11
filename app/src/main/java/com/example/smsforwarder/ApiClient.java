@@ -111,7 +111,7 @@ public class ApiClient {
         try {
             // String encrypted = encryptJson(bodyString);
 
-            sendToServer(bodyJsonArray, null);
+            sendToServer(bodyJsonArray, callback);
         } catch (Exception exception) {
             Log.e(TAG, "Unexpected encryption error: " + exception.getMessage());
             if (callback != null) {
