@@ -22,6 +22,8 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        binding.edtPhoneNumber.setText(AppPreferences.getFallbackReceiverNumber(this));
+        binding.btnSavePhoneNumber.setOnClickListener(view -> saveReceiverNumber());
         renderSimInfo();
 
         if (!PermissionsHelper.hasSmsPermissions(this)) {
@@ -32,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        binding.edtPhoneNumber.setText(AppPreferences.getFallbackReceiverNumber(this));
         renderSimInfo();
     }
 
@@ -65,6 +68,16 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         binding.textSimInfo.setText(builder.toString().trim());
+    }
+
+    private void saveReceiverNumber() {
+        String receiverNumber = binding.edtPhoneNumber.getText().toString().trim();
+        if (TextUtils.isEmpty(receiverNumber)) {
+            Toast.makeText(this, R.string.receiver_missing, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        AppPreferences.saveFallbackReceiverNumber(this, receiverNumber);
+        Toast.makeText(this, R.string.receiver_saved, Toast.LENGTH_SHORT).show();
     }
 
     @Override

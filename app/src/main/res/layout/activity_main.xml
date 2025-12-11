@@ -19,4 +19,28 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <EditText
+        android:id="@+id/edtPhoneNumber"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="@string/receiver_number_hint"
+        android:inputType="phone"
+        android:maxLines="1"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toBottomOf="@id/text_sim_info"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <Button
+        android:id="@+id/btnSavePhoneNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/save_receiver_number"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/edtPhoneNumber"
+        app:layout_constraintStart_toStartOf="@id/edtPhoneNumber"
+        app:layout_constraintEnd_toEndOf="@id/edtPhoneNumber" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

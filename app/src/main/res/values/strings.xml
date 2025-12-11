@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">SMS Forwarder 202512</string>
     <string name="receiver_number_hint">Receiver phone number</string>
-    <string name="save_button">Save</string>
+    <string name="save_receiver_number">Save Receiver Number</string>
     <string name="permission_rationale">SMS permissions are needed to receive messages.</string>
     <string name="receiver_saved">Receiver number saved.</string>
     <string name="receiver_missing">Please enter a receiver number.</string>

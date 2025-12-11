@@ -87,14 +87,9 @@ public class SmsService extends Service {
         }
 
         SimInfoManager.SimEntry simEntry = simInfoManager.getEntryForSubscription(subscriptionId);
-        String receiverNumber = simEntry != null ? simEntry.phoneNumber : null;
+        int slotIndex = simEntry != null ? simEntry.slotIndex : SubscriptionManager.INVALID_SIM_SLOT_INDEX;
+        String receiverNumber = simInfoManager.getReceiverNumber(slotIndex);
         String receiverIccid = simEntry != null ? simEntry.iccid : null;
-        if (TextUtils.isEmpty(receiverNumber)) {
-            receiverNumber = AppPreferences.getReceiverNumber(this);
-        }
-        if (!TextUtils.isEmpty(receiverNumber)) {
-            receiverNumber = receiverNumber.trim();
-        }
         if (TextUtils.isEmpty(receiverNumber)) {
             Log.w(TAG, "Receiver number not configured.");
             stopSelfResult(startId);

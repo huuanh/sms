@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
@@ -38,8 +39,10 @@ public class SimInfoManager {
 
     private final Map<Integer, SimEntry> slotEntries = new HashMap<>();
     private final Map<Integer, Integer> subscriptionToSlot = new HashMap<>();
+    private Context appContext;
 
     public synchronized void refresh(Context context) {
+        appContext = context != null ? context.getApplicationContext() : null;
         slotEntries.clear();
         subscriptionToSlot.clear();
 
@@ -113,6 +116,86 @@ public class SimInfoManager {
             return null;
         }
         return slotEntries.get(slot);
+    }
+
+    public synchronized String getReceiverNumber(int simSlotIndex) {
+        String number = null;
+        SimEntry entry = slotEntries.get(simSlotIndex);
+        if (entry != null && !TextUtils.isEmpty(entry.phoneNumber)) {
+            number = entry.phoneNumber;
+        }
+        if (TextUtils.isEmpty(number)) {
+            number = resolveNumberFromSystem(simSlotIndex);
+        }
+        if (TextUtils.isEmpty(number) && appContext != null) {
+            number = AppPreferences.getFallbackReceiverNumber(appContext);
+        }
+        return number != null ? number.trim() : null;
+    }
+
+    private String resolveNumberFromSystem(int simSlotIndex) {
+        if (appContext == null) {
+            return null;
+        }
+        if (!hasPhonePermissions(appContext)) {
+            return null;
+        }
+        SubscriptionManager subscriptionManager = appContext.getSystemService(SubscriptionManager.class);
+        if (subscriptionManager == null) {
+            return null;
+        }
+        SubscriptionInfo info = null;
+        try {
+            if (simSlotIndex >= 0) {
+                info = subscriptionManager.getActiveSubscriptionInfoForSimSlotIndex(simSlotIndex);
+            }
+        } catch (SecurityException ignored) {
+            return null;
+        }
+        if (info != null) {
+            String infoNumber = info.getNumber();
+            if (!TextUtils.isEmpty(infoNumber)) {
+                return infoNumber;
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                TelephonyManager telephonyManager = appContext.getSystemService(TelephonyManager.class);
+                if (telephonyManager != null) {
+                    TelephonyManager perSubscription = telephonyManager.createForSubscriptionId(info.getSubscriptionId());
+                    if (perSubscription != null) {
+                        String lineNumber = perSubscription.getLine1Number();
+                        if (!TextUtils.isEmpty(lineNumber)) {
+                            return lineNumber;
+                        }
+                    }
+                }
+            } else {
+                TelephonyManager telephonyManager = (TelephonyManager) appContext.getSystemService(Context.TELEPHONY_SERVICE);
+                if (telephonyManager != null) {
+                    String lineNumber = telephonyManager.getLine1Number();
+                    if (!TextUtils.isEmpty(lineNumber)) {
+                        return lineNumber;
+                    }
+                }
+            }
+        }
+        if (info == null && entryHasSubscription(simSlotIndex) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            TelephonyManager telephonyManager = appContext.getSystemService(TelephonyManager.class);
+            if (telephonyManager != null) {
+                int subscriptionId = slotEntries.get(simSlotIndex).subscriptionId;
+                TelephonyManager perSubscription = telephonyManager.createForSubscriptionId(subscriptionId);
+                if (perSubscription != null) {
+                    String lineNumber = perSubscription.getLine1Number();
+                    if (!TextUtils.isEmpty(lineNumber)) {
+                        return lineNumber;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean entryHasSubscription(int simSlotIndex) {
+        return slotEntries.containsKey(simSlotIndex) && slotEntries.get(simSlotIndex) != null;
     }
 
     private boolean hasPhonePermissions(Context context) {
